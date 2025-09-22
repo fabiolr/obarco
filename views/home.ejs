@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>O Barco - Task Management</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <a href="/">
+                <span class="logo-icon">⚓</span>
+                <span class="logo-text">O Barco</span>
+            </a>
+        </div>
+        <div class="header-actions">
+            <a href="/new" class="btn-primary">+ New Item</a>
+            <form action="/logout" method="POST" style="display: inline;">
+                <button type="submit" class="btn-logout">Logout</button>
+            </form>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="welcome">
+            <h1>Welcome, <%= user.username %>!</h1>
+        </div>
+
+        <% if (items && items.length > 0) { %>
+            <div class="items-list">
+                <% items.forEach(item => { %>
+                    <%
+                        const isOverdue = (item.status !== 'Completed') && 
+                            ((item.expected_completion && new Date(item.expected_completion) < new Date()) ||
+                             (['New', 'Pending'].includes(item.status) && 
+                              (Date.now() - new Date(item.created_at).getTime()) > (7 * 24 * 60 * 60 * 1000)));
+                        
+                        const isCompleted = item.status === 'Completed';
+                        
+                        let itemClass = 'item-card';
+                        if (isOverdue) itemClass += ' overdue';
+                        if (isCompleted) itemClass += ' completed';
+                    %>
+                    
+                    <a href="/items/<%= item.id %>" class="<%= itemClass %>">
+                        <div class="item-header">
+                            <h3><%= item.title %></h3>
+                            <div class="item-badges">
+                                <% if (item.attachment_count > 0) { %>
+                                <span class="attachment-badge">
+                                    📎 <%= item.attachment_count %>
+                                </span>
+                                <% } %>
+                                <span class="status-badge status-<%= item.status.toLowerCase().replace(/\s+/g, '-') %>">
+                                    <%= item.status %>
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <% if (item.description) { %>
+                        <p class="item-description">
+                            <%= item.description.length > 100 ? item.description.substring(0, 100) + '...' : item.description %>
+                        </p>
+                        <% } %>
+                        
+                        <div class="item-meta">
+                            <span>Created by <%= item.created_by_name %></span>
+                            <span><%= new Date(item.created_at).toLocaleDateString() %></span>
+                            <% if (item.expected_completion && item.status !== 'Completed') { %>
+                            <span class="expected-date <%= isOverdue ? 'overdue' : '' %>">
+                                Due: <%= new Date(item.expected_completion).toLocaleDateString() %>
+                            </span>
+                            <% } %>
+                        </div>
+                    </a>
+                <% }); %>
+            </div>
+        <% } else { %>
+            <div class="empty-state">
+                <div class="empty-icon">📋</div>
+                <h2>No items yet</h2>
+                <p>Create your first task to get started!</p>
+                <a href="/new" class="btn-primary">Create First Item</a>
+            </div>
+        <% } %>
+
+        <div class="export-section">
+            <a href="/export/csv" class="export-link">📥 Download CSV Export</a>
+        </div>
+    </div>
+</body>
+</html>

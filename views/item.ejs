@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>O Barco - <%= item.title %></title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <a href="/">
+                <span class="logo-icon">⚓</span>
+                <span class="logo-text">O Barco</span>
+            </a>
+        </div>
+        <div class="header-actions">
+            <form action="/logout" method="POST" style="display: inline;">
+                <button type="submit" class="btn-logout">Logout</button>
+            </form>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="card">
+            <div class="item-header">
+                <h2><%= item.title %></h2>
+                <div class="item-meta">
+                    <span class="status-badge status-<%= item.status.toLowerCase().replace(/\s+/g, '-') %>">
+                        <%= item.status %>
+                    </span>
+                    <small>Created by <%= item.created_by_name %> on <%= new Date(item.created_at).toLocaleDateString() %></small>
+                </div>
+            </div>
+
+            <!-- Item Edit Form -->
+            <form action="/items/<%= item.id %>" method="POST" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" rows="4"><%= item.description || '' %></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Status</label>
+                    <div class="status-selector">
+                        <div class="status-categories">
+                            <button type="button" class="status-category-btn active" data-category="basic">Basic</button>
+                            <button type="button" class="status-category-btn" data-category="third-party">3rd Party</button>
+                        </div>
+                        
+                        <div class="status-options">
+                            <div class="status-group active" data-group="basic">
+                                <button type="button" class="status-btn <%= item.status === 'New' ? 'active' : '' %>" data-status="New">New</button>
+                                <button type="button" class="status-btn <%= item.status === 'Pending' ? 'active' : '' %>" data-status="Pending">Pending</button>
+                                <button type="button" class="status-btn <%= item.status === 'Under Procurement' ? 'active' : '' %>" data-status="Under Procurement">Under Procurement</button>
+                                <button type="button" class="status-btn <%= item.status === 'Pending Execution (internal)' ? 'active' : '' %>" data-status="Pending Execution (internal)">Pending Execution (internal)</button>
+                                <button type="button" class="status-btn <%= item.status === 'Completed' ? 'active' : '' %>" data-status="Completed">Completed</button>
+                            </div>
+                            
+                            <div class="status-group" data-group="third-party">
+                                <button type="button" class="status-btn <%= item.status === '3rd Party - Pending Visit' ? 'active' : '' %>" data-status="3rd Party - Pending Visit">Pending Visit</button>
+                                <button type="button" class="status-btn <%= item.status === '3rd Party - Pending Quote' ? 'active' : '' %>" data-status="3rd Party - Pending Quote">Pending Quote</button>
+                                <button type="button" class="status-btn <%= item.status === '3rd Party - Pending Approval' ? 'active' : '' %>" data-status="3rd Party - Pending Approval">Pending Approval</button>
+                                <button type="button" class="status-btn <%= item.status === '3rd Party - Pending Execution' ? 'active' : '' %>" data-status="3rd Party - Pending Execution">Pending Execution</button>
+                            </div>
+                        </div>
+                        <input type="hidden" id="status" name="status" value="<%= item.status %>">
+                    </div>
+                </div>
+
+                <div class="form-group" id="completion-date-group" style="<%= ['Pending', 'Under Procurement', '3rd Party - Pending Visit', '3rd Party - Pending Quote', '3rd Party - Pending Approval', '3rd Party - Pending Execution', 'Pending Execution (internal)'].includes(item.status) ? '' : 'display: none;' %>">
+                    <label for="expected_completion">Expected Completion Date</label>
+                    <input type="date" id="expected_completion" name="expected_completion" value="<%= item.expected_completion || '' %>">
+                </div>
+
+                <!-- Existing Attachments -->
+                <% if (attachments && attachments.length > 0) { %>
+                <div class="form-group">
+                    <label>Current Attachments</label>
+                    <div class="attachments-list">
+                        <% attachments.forEach(attachment => { %>
+                        <div class="attachment-item">
+                            <div class="attachment-info">
+                                <span class="attachment-icon">📎</span>
+                                <div class="attachment-details">
+                                    <div class="attachment-name">
+                                        <a href="/attachments/<%= attachment.id %>/download" target="_blank">
+                                            <%= attachment.original_filename %>
+                                        </a>
+                                    </div>
+                                    <div class="attachment-meta">
+                                        <%= (attachment.file_size / 1024 / 1024).toFixed(2) %> MB
+                                        • Uploaded by <%= attachment.uploaded_by %>
+                                        • <%= new Date(attachment.created_at).toLocaleDateString() %>
+                                    </div>
+                                </div>
+                            </div>
+                            <form action="/attachments/<%= attachment.id %>/delete" method="POST" style="display: inline;" 
+                                  onsubmit="return confirm('Are you sure you want to delete this attachment?')">
+                                <button type="submit" class="btn-remove-attachment">×</button>
+                            </form>
+                        </div>
+                        <% }); %>
+                    </div>
+                </div>
+                <% } %>
+
+                <!-- Add New Attachments -->
+                <div class="form-group">
+                    <label for="new_attachments">Add New Attachments</label>
+                    <div class="file-upload-area">
+                        <input type="file" id="new_attachments" name="new_attachments" multiple accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx,.xls">
+                        <div class="file-upload-hint">
+                            <span class="upload-icon">📎</span>
+                            <p>Click to select files or drag and drop</p>
+                            <small>Supported: Images, PDFs, Documents (Max 50MB each, up to 5 files)</small>
+                        </div>
+                        <div id="new-file-list" class="file-list"></div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Update Item</button>
+                    <a href="/" class="btn-secondary">Back to List</a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Comments Section -->
+        <div class="card">
+            <h3>Comments</h3>
+            
+            <% if (comments && comments.length > 0) { %>
+                <div class="comments-list">
+                    <% comments.forEach(comment => { %>
+                    <div class="comment">
+                        <div class="comment-header">
+                            <strong><%= comment.username %></strong>
+                            <small><%= new Date(comment.created_at).toLocaleDateString() %> <%= new Date(comment.created_at).toLocaleTimeString() %></small>
+                        </div>
+                        <div class="comment-body">
+                            <%= comment.comment %>
+                        </div>
+                    </div>
+                    <% }); %>
+                </div>
+            <% } else { %>
+                <p class="no-comments">No comments yet.</p>
+            <% } %>
+
+            <form action="/items/<%= item.id %>/comments" method="POST" class="comment-form">
+                <div class="form-group">
+                    <label for="comment">Add Comment</label>
+                    <textarea id="comment" name="comment" rows="3" placeholder="Enter your comment..." required></textarea>
+                </div>
+                <button type="submit" class="btn-primary">Add Comment</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Status selector functionality
+        document.querySelectorAll('.status-category-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                // Remove active from all category buttons
+                document.querySelectorAll('.status-category-btn').forEach(b => b.classList.remove('active'));
+                // Add active to clicked button
+                this.classList.add('active');
+                
+                // Hide all status groups
+                document.querySelectorAll('.status-group').forEach(g => g.classList.remove('active'));
+                // Show the selected group
+                document.querySelector(`[data-group="${this.dataset.category}"]`).classList.add('active');
+            });
+        });
+
+        document.querySelectorAll('.status-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                // Remove active from all status buttons
+                document.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+                // Add active to clicked button
+                this.classList.add('active');
+                
+                // Update hidden input
+                document.getElementById('status').value = this.dataset.status;
+                
+                // Show/hide completion date field
+                const completionGroup = document.getElementById('completion-date-group');
+                const needsDate = ['Pending', 'Under Procurement', '3rd Party - Pending Visit', '3rd Party - Pending Quote', '3rd Party - Pending Approval', '3rd Party - Pending Execution', 'Pending Execution (internal)'];
+                
+                if (needsDate.includes(this.dataset.status)) {
+                    completionGroup.style.display = 'block';
+                } else {
+                    completionGroup.style.display = 'none';
+                }
+            });
+        });
+
+        // File upload preview functionality for new attachments with size warnings
+        document.getElementById('new_attachments').addEventListener('change', function(e) {
+            const fileList = document.getElementById('new-file-list');
+            const files = Array.from(e.target.files);
+            
+            fileList.innerHTML = '';
+            
+            if (files.length > 0) {
+                files.forEach((file, index) => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+                    
+                    const fileName = file.name.length > 30 ? 
+                        file.name.substring(0, 30) + '...' : file.name;
+                    
+                    const fileSize = (file.size / 1024 / 1024).toFixed(2);
+                    
+                    // Show warning for large files
+                    const sizeWarning = file.size > 20 * 1024 * 1024 ? 
+                        '<small style="color: #e67e22;">⚠️ Large file - may take time to upload</small>' : '';
+                    
+                    fileItem.innerHTML = `
+                        <span class="file-icon">📄</span>
+                        <div class="file-info">
+                            <div class="file-name">${fileName}</div>
+                            <div class="file-size">${fileSize} MB</div>
+                            ${sizeWarning}
+                        </div>
+                        <button type="button" class="btn-remove-file" onclick="removeNewFile(${index})">×</button>
+                    `;
+                    
+                    fileList.appendChild(fileItem);
+                });
+            }
+        });
+
+        function removeNewFile(index) {
+            const input = document.getElementById('new_attachments');
+            const dt = new DataTransfer();
+            const files = Array.from(input.files);
+            
+            files.forEach((file, i) => {
+                if (i !== index) {
+                    dt.items.add(file);
+                }
+            });
+            
+            input.files = dt.files;
+            
+            // Trigger change event to update the preview
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        // Drag and drop functionality for new attachments
+        const uploadArea = document.querySelector('.file-upload-area');
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            uploadArea.classList.add('drag-over');
+        }
+
+        function unhighlight(e) {
+            uploadArea.classList.remove('drag-over');
+        }
+
+        uploadArea.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            
+            document.getElementById('new_attachments').files = files;
+            document.getElementById('new_attachments').dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        // Click to upload
+        uploadArea.addEventListener('click', function() {
+            document.getElementById('new_attachments').click();
+        });
+    </script>
+</body>
+</html>
