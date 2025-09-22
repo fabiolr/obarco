@@ -1,4 +1,4 @@
-/* Reset and base styles */
+/* Reset and base styles v9 */
 * {
     margin: 0;
     padding: 0;
@@ -386,24 +386,67 @@ body {
     font-size: 12px;
 }
 
+/* Attachment actions */
+.attachment-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.btn-download {
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.btn-download:hover {
+    background: #218838;
+    transform: scale(1.1);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
 .btn-remove-file, .btn-remove-attachment {
     background: #dc3545;
     color: white;
     border: none;
-    border-radius: 50%;
-    width: 24px;
-    height: 24px;
+    border-radius: 6px;
+    width: 32px;
+    height: 32px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: bold;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background-color 0.2s;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    pointer-events: auto;
+    z-index: 10;
+    position: relative;
 }
 
 .btn-remove-file:hover, .btn-remove-attachment:hover {
     background: #c82333;
+    transform: scale(1.1);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* Ensure forms don't interfere with clicking */
+.attachment-actions form {
+    margin: 0;
+    padding: 0;
+    display: inline-block;
 }
 
 /* Attachments Display */

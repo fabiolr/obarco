@@ -1,3 +1,5 @@
+// v5
+
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
@@ -397,35 +399,52 @@ app.post('/attachments/:id/delete', requireAuth, (req, res) => {
   const attachmentId = req.params.id;
   const userId = req.cookies.userId;
 
+  console.log(`User ${userId} attempting to delete attachment ${attachmentId}`);
+
   // Get attachment info first
   db.get(
     'SELECT * FROM attachments WHERE id = ?',
     [attachmentId],
     (err, attachment) => {
-      if (err || !attachment) {
+      if (err) {
+        console.error('Database error getting attachment:', err);
+        return res.status(500).send('Database error');
+      }
+      
+      if (!attachment) {
+        console.error('Attachment not found:', attachmentId);
         return res.status(404).send('Attachment not found');
       }
 
+      console.log('Found attachment:', attachment.original_filename);
+
       // Delete file from disk
       const filePath = path.join(__dirname, attachment.file_path);
+      console.log('Attempting to delete file:', filePath);
+      
       if (fs.existsSync(filePath)) {
         try {
           fs.unlinkSync(filePath);
+          console.log('File deleted successfully');
         } catch (fsErr) {
           console.error('Error deleting file:', fsErr);
+          // Continue with database deletion even if file deletion fails
         }
+      } else {
+        console.log('File not found on disk, continuing with database deletion');
       }
 
       // Delete record from database
       db.run(
         'DELETE FROM attachments WHERE id = ?',
         [attachmentId],
-        (err) => {
+        function(err) {
           if (err) {
-            console.error(err);
+            console.error('Database error deleting attachment:', err);
             return res.status(500).send('Database error');
           }
 
+          console.log(`Attachment ${attachmentId} deleted successfully`);
           res.redirect(`/items/${attachment.item_id}`);
         }
       );
