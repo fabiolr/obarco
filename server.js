@@ -9,6 +9,7 @@ const { body, validationResult } = require('express-validator');
 const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = 3002;
@@ -117,6 +118,20 @@ db.serialize(() => {
 
   // Create index for better performance
   db.run(`CREATE INDEX IF NOT EXISTS idx_attachments_item_id ON attachments (item_id)`);
+
+  // Password reset tokens table
+  db.run(`CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    token TEXT UNIQUE NOT NULL,
+    expires_at DATETIME NOT NULL,
+    used INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id)
+  )`);
+
+  // Create index for token lookups
+  db.run(`CREATE INDEX IF NOT EXISTS idx_reset_tokens_token ON password_reset_tokens (token)`);
 });
 
 // Authentication middleware
@@ -598,6 +613,187 @@ app.post('/register', [
       );
     });
   });
+});
+
+// Forgot password page
+app.get('/forgot-password', (req, res) => {
+  if (req.cookies.userId) {
+    return res.redirect('/');
+  }
+  res.render('forgot-password');
+});
+
+// Forgot password handler
+app.post('/forgot-password', [
+  body('username').trim().isLength({ min: 1 }).withMessage('Username is required')
+], (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.render('forgot-password', { errors: errors.array() });
+  }
+
+  const { username } = req.body;
+
+  // Find user by username
+  db.get('SELECT * FROM users WHERE username = ?', [username], (err, user) => {
+    if (err) {
+      console.error(err);
+      return res.render('forgot-password', { errors: [{ msg: 'Database error' }] });
+    }
+
+    // Always show success message for security (don't reveal if user exists)
+    if (!user) {
+      return res.render('forgot-password', {
+        success: 'If an account with that username exists, a password reset link has been generated. Please contact an administrator with your phone number to receive the reset link.'
+      });
+    }
+
+    // Generate reset token
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 3600000); // 1 hour from now
+
+    // Store token in database
+    db.run(
+      'INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?, ?, ?)',
+      [user.id, token, expiresAt.toISOString()],
+      function(err) {
+        if (err) {
+          console.error(err);
+          return res.render('forgot-password', { errors: [{ msg: 'Error generating reset token' }] });
+        }
+
+        // Generate reset link
+        const resetLink = `${req.protocol}://${req.get('host')}/reset-password/${token}`;
+
+        // Display the reset link to the user (since there's no email system)
+        res.render('forgot-password', {
+          success: 'Password reset link generated successfully!',
+          resetLink: resetLink,
+          phone: user.phone
+        });
+      }
+    );
+  });
+});
+
+// Reset password page
+app.get('/reset-password/:token', (req, res) => {
+  if (req.cookies.userId) {
+    return res.redirect('/');
+  }
+
+  const token = req.params.token;
+
+  // Verify token exists and is valid
+  db.get(
+    'SELECT * FROM password_reset_tokens WHERE token = ? AND used = 0 AND datetime(expires_at) > datetime("now")',
+    [token],
+    (err, resetToken) => {
+      if (err) {
+        console.error(err);
+        return res.render('reset-password', {
+          errors: [{ msg: 'Database error' }],
+          token: null
+        });
+      }
+
+      if (!resetToken) {
+        return res.render('reset-password', {
+          errors: [{ msg: 'Invalid or expired reset token' }],
+          token: null
+        });
+      }
+
+      res.render('reset-password', { token: token });
+    }
+  );
+});
+
+// Reset password handler
+app.post('/reset-password/:token', [
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('confirmPassword').custom((value, { req }) => {
+    if (value !== req.body.password) {
+      throw new Error('Passwords do not match');
+    }
+    return true;
+  })
+], (req, res) => {
+  const errors = validationResult(req);
+  const token = req.params.token;
+
+  if (!errors.isEmpty()) {
+    return res.render('reset-password', {
+      errors: errors.array(),
+      token: token
+    });
+  }
+
+  const { password } = req.body;
+
+  // Verify token again
+  db.get(
+    'SELECT * FROM password_reset_tokens WHERE token = ? AND used = 0 AND datetime(expires_at) > datetime("now")',
+    [token],
+    (err, resetToken) => {
+      if (err) {
+        console.error(err);
+        return res.render('reset-password', {
+          errors: [{ msg: 'Database error' }],
+          token: token
+        });
+      }
+
+      if (!resetToken) {
+        return res.render('reset-password', {
+          errors: [{ msg: 'Invalid or expired reset token' }],
+          token: null
+        });
+      }
+
+      // Hash new password
+      bcrypt.hash(password, 10, (err, hash) => {
+        if (err) {
+          console.error(err);
+          return res.render('reset-password', {
+            errors: [{ msg: 'Password hashing error' }],
+            token: token
+          });
+        }
+
+        // Update user password
+        db.run(
+          'UPDATE users SET password_hash = ? WHERE id = ?',
+          [hash, resetToken.user_id],
+          (err) => {
+            if (err) {
+              console.error(err);
+              return res.render('reset-password', {
+                errors: [{ msg: 'Database error updating password' }],
+                token: token
+              });
+            }
+
+            // Mark token as used
+            db.run(
+              'UPDATE password_reset_tokens SET used = 1 WHERE id = ?',
+              [resetToken.id],
+              (err) => {
+                if (err) {
+                  console.error(err);
+                }
+
+                // Redirect to login with success message
+                res.render('login', {
+                  success: 'Password has been reset successfully! You can now login with your new password.'
+                });
+              }
+            );
+          }
+        );
+      });
+    }
+  );
 });
 
 // Logout
