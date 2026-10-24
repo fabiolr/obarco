@@ -4,19 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>O Barco - Task Management</title>
-    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="<%= base %>/styles.css">
 </head>
 <body>
     <header class="header">
         <div class="logo">
-            <a href="/">
+            <a href="<%= base %>/">
                 <span class="logo-icon">⚓</span>
                 <span class="logo-text">O Barco</span>
             </a>
         </div>
         <div class="header-actions">
-            <a href="/new" class="btn-primary">+ New Item</a>
-            <form action="/logout" method="POST" style="display: inline;">
+            <a href="<%= base %>/new" class="btn-primary">+ New Item</a>
+            <form action="<%= base %>/logout" method="POST" style="display: inline;">
                 <button type="submit" class="btn-logout">Logout</button>
             </form>
         </div>
@@ -43,7 +43,7 @@
                         if (isCompleted) itemClass += ' completed';
                     %>
                     
-                    <a href="/items/<%= item.id %>" class="<%= itemClass %>">
+                    <a href="<%= base %>/items/<%= item.id %>" class="<%= itemClass %>">
                         <div class="item-header">
                             <h3><%= item.title %></h3>
                             <div class="item-badges">
@@ -81,12 +81,12 @@
                 <div class="empty-icon">📋</div>
                 <h2>No items yet</h2>
                 <p>Create your first task to get started!</p>
-                <a href="/new" class="btn-primary">Create First Item</a>
+                <a href="<%= base %>/new" class="btn-primary">Create First Item</a>
             </div>
         <% } %>
 
         <div class="export-section">
-            <a href="/export/csv" class="export-link">📥 Download CSV Export</a>
+            <a href="<%= base %>/export/csv" class="export-link">📥 Download CSV Export</a>
         </div>
     </div>
 </body>

@@ -5,18 +5,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>O Barco - <%= item.title %></title>
-    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="<%= base %>/styles.css">
 </head>
 <body>
     <header class="header">
         <div class="logo">
-            <a href="/">
+            <a href="<%= base %>/">
                 <span class="logo-icon">⚓</span>
                 <span class="logo-text">O Barco</span>
             </a>
         </div>
         <div class="header-actions">
-            <form action="/logout" method="POST" style="display: inline;">
+            <form action="<%= base %>/logout" method="POST" style="display: inline;">
                 <button type="submit" class="btn-logout">Logout</button>
             </form>
         </div>
@@ -26,7 +26,7 @@
         <!-- Delete Forms (Outside Main Form to Avoid Nesting) -->
         <% if (attachments && attachments.length > 0) { %>
             <% attachments.forEach(attachment => { %>
-            <form id="delete-form-<%= attachment.id %>" action="/attachments/<%= attachment.id %>/delete" method="POST" style="display: none;"></form>
+            <form id="delete-form-<%= attachment.id %>" action="<%= base %>/attachments/<%= attachment.id %>/delete" method="POST" style="display: none;"></form>
             <% }); %>
         <% } %>
 
@@ -44,7 +44,7 @@
             </div>
 
             <!-- Item Edit Form -->
-            <form action="/items/<%= item.id %>" method="POST" enctype="multipart/form-data">
+            <form action="<%= base %>/items/<%= item.id %>" method="POST" enctype="multipart/form-data">
                 <div class="form-group">
                     <label for="description">Description</label>
                     <textarea id="description" name="description" rows="4"><%= item.description || '' %></textarea>
@@ -94,7 +94,7 @@
                                 <span class="attachment-icon">📎</span>
                                 <div class="attachment-details">
                                     <div class="attachment-name">
-                                        <a href="/attachments/<%= attachment.id %>/download" target="_blank" title="Download <%= attachment.original_filename %>">
+                                        <a href="<%= base %>/attachments/<%= attachment.id %>/download" target="_blank" title="Download <%= attachment.original_filename %>">
                                             <%= attachment.original_filename %>
                                         </a>
                                     </div>
@@ -106,7 +106,7 @@
                                 </div>
                             </div>
                             <div class="attachment-actions">
-                                <a href="/attachments/<%= attachment.id %>/download" class="btn-download" title="Download file">📥</a>
+                                <a href="<%= base %>/attachments/<%= attachment.id %>/download" class="btn-download" title="Download file">📥</a>
                                 <button type="button" class="btn-remove-attachment" 
                                         title="Delete attachment"
                                         onclick="deleteAttachment(<%= attachment.id %>)">🗑️</button>
@@ -133,7 +133,7 @@
 
                 <div class="form-actions">
                     <button type="submit" class="btn-primary">Update Item</button>
-                    <a href="/" class="btn-secondary">Back to List</a>
+                    <a href="<%= base %>/" class="btn-secondary">Back to List</a>
                 </div>
             </form>
         </div>
@@ -160,7 +160,7 @@
                 <p class="no-comments">No comments yet.</p>
             <% } %>
 
-            <form action="/items/<%= item.id %>/comments" method="POST" class="comment-form">
+            <form action="<%= base %>/items/<%= item.id %>/comments" method="POST" class="comment-form">
                 <div class="form-group">
                     <label for="comment">Add Comment</label>
                     <textarea id="comment" name="comment" rows="3" placeholder="Enter your comment..." required></textarea>

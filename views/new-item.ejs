@@ -4,18 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>O Barco - New Item</title>
-    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="<%= base %>/styles.css">
 </head>
 <body>
     <header class="header">
         <div class="logo">
-            <a href="/">
+            <a href="<%= base %>/">
                 <span class="logo-icon">⚓</span>
                 <span class="logo-text">O Barco</span>
             </a>
         </div>
         <div class="header-actions">
-            <form action="/logout" method="POST" style="display: inline;">
+            <form action="<%= base %>/logout" method="POST" style="display: inline;">
                 <button type="submit" class="btn-logout">Logout</button>
             </form>
         </div>
@@ -25,7 +25,7 @@
         <div class="card">
             <h2>Create New Item</h2>
             
-            <form action="/items" method="POST" enctype="multipart/form-data">
+            <form action="<%= base %>/items" method="POST" enctype="multipart/form-data">
                 <div class="form-group">
                     <label for="title">Title *</label>
                     <input type="text" id="title" name="title" required>
@@ -51,7 +51,7 @@
                 
                 <div class="form-actions">
                     <button type="submit" class="btn-primary btn-create">Create Item</button>
-                    <a href="/" class="btn-secondary">Cancel</a>
+                    <a href="<%= base %>/" class="btn-secondary">Cancel</a>
                 </div>
             </form>
         </div>

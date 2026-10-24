@@ -1,0 +1,25 @@
+# Deployed on the `web` droplet behind the shared Caddy (network finrib).
+# obarco.ribei.ro: /           -> live page (served by Caddy from live/index.html)
+#                  /api/*      -> live relay (POST needs X-API-Key)
+#                  /live/api/* -> live relay (legacy path used by the boat Pi)
+#                  /admin/*    -> this todo/management app (BASE_PATH=/admin)
+services:
+  obarco-admin:
+    build: .
+    restart: unless-stopped
+    environment:
+      BASE_PATH: /admin
+    volumes:
+      - ./data/admin:/data
+      - ./data/uploads:/app/uploads
+    networks: [finrib]
+  obarco-live:
+    build: ./live
+    restart: unless-stopped
+    env_file: ./live.env   # OBARCO_API_KEY (not in git)
+    volumes:
+      - ./data/live:/data
+    networks: [finrib]
+networks:
+  finrib:
+    external: true

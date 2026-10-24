@@ -56,3 +56,5 @@ jspm_packages/
 
 # Yarn Integrity file
 .yarn-integrity
+data/
+live.env

@@ -12,7 +12,8 @@ const fs = require('fs');
 const crypto = require('crypto');
 
 const app = express();
-const PORT = 3002;
+const PORT = process.env.PORT || 3002;
+app.set('trust proxy', true);
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -58,13 +59,25 @@ app.use(bodyParser.json({
   limit: '60mb' // Increase limit for file uploads  
 }));
 app.use(cookieParser());
+// Optional mount prefix (e.g. /admin when served behind a reverse proxy that strips it)
+const BASE_PATH = (process.env.BASE_PATH || '').replace(/\/$/, '');
+app.use((req, res, next) => {
+  res.locals.base = BASE_PATH;
+  const redirect = res.redirect.bind(res);
+  res.redirect = function (...args) {
+    const i = args.length - 1;
+    if (typeof args[i] === 'string' && args[i].startsWith('/')) args[i] = BASE_PATH + args[i];
+    return redirect(...args);
+  };
+  next();
+});
 app.use(express.static('public'));
 app.use('/uploads', express.static('uploads')); // Serve uploaded files
 app.set('view engine', 'ejs');
 app.set('views', './views');
 
 // Database setup
-const db = new sqlite3.Database('./obarco.db');
+const db = new sqlite3.Database(process.env.DB_PATH || './obarco.db');
 
 // Initialize database tables
 db.serialize(() => {
@@ -663,7 +676,7 @@ app.post('/forgot-password', [
         }
 
         // Generate reset link
-        const resetLink = `${req.protocol}://${req.get('host')}/reset-password/${token}`;
+        const resetLink = `${req.protocol}://${req.get('host')}${BASE_PATH}/reset-password/${token}`;
 
         // Display the reset link to the user (since there's no email system)
         res.render('forgot-password', {

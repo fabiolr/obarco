@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>O Barco — Live</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0a1628; color: #e0e6ed; }
+  #map { width: 100%; height: 50vh; min-height: 300px; }
+  .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: #111d2e; font-size: 14px; }
+  .status-bar h1 { font-size: 18px; font-weight: 600; }
+  #last-seen { padding: 4px 10px; border-radius: 12px; font-size: 13px; }
+  .fresh { background: #1a4d2e; color: #4ade80; }
+  .stale { background: #4d3a1a; color: #fbbf24; }
+  .offline { background: #4d1a1a; color: #f87171; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; padding: 12px; }
+  .card { background: #111d2e; border-radius: 10px; padding: 14px; text-align: center; }
+  .card .label { font-size: 11px; text-transform: uppercase; color: #7b8a9e; letter-spacing: 0.5px; }
+  .card .value { font-size: 28px; font-weight: 700; margin: 4px 0; color: #fff; }
+  .card .unit { font-size: 13px; color: #7b8a9e; }
+  .engine-section { padding: 0 12px 12px; }
+  .engine-section h3 { font-size: 13px; color: #7b8a9e; text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 0 6px; }
+  .engine-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .engine-card { background: #111d2e; border-radius: 10px; padding: 12px; }
+  .engine-card .name { font-size: 12px; color: #7b8a9e; margin-bottom: 6px; }
+  .engine-card .stats { display: flex; gap: 16px; }
+  .engine-card .stat .val { font-size: 22px; font-weight: 700; color: #fff; }
+  .engine-card .stat .lbl { font-size: 11px; color: #7b8a9e; }
+  .no-data { color: #4a5568; }
+</style>
+</head>
+<body>
+<div class="status-bar">
+  <h1>O Barco</h1>
+  <span id="last-seen" class="offline">Loading...</span>
+</div>
+<div id="map"></div>
+<div class="cards">
+  <div class="card"><div class="label">Speed</div><div class="value" id="speed">--</div><div class="unit">knots</div></div>
+  <div class="card"><div class="label">Heading</div><div class="value" id="heading">--</div><div class="unit">degrees</div></div>
+  <div class="card"><div class="label">Depth</div><div class="value" id="depth">--</div><div class="unit">ft</div></div>
+  <div class="card"><div class="label">Water Temp</div><div class="value" id="waterTemp">--</div><div class="unit">C</div></div>
+  <div class="card"><div class="label">Fuel</div><div class="value" id="fuel">--</div><div class="unit">%</div></div>
+</div>
+<div class="engine-section">
+  <h3>Engines</h3>
+  <div class="engine-row">
+    <div class="engine-card">
+      <div class="name">Port</div>
+      <div class="stats">
+        <div class="stat"><div class="val" id="port-rpm">--</div><div class="lbl">RPM</div></div>
+        <div class="stat"><div class="val" id="port-temp">--</div><div class="lbl">Temp</div></div>
+        <div class="stat"><div class="val" id="port-hours">--</div><div class="lbl">Hours</div></div>
+      </div>
+    </div>
+    <div class="engine-card">
+      <div class="name">Starboard</div>
+      <div class="stats">
+        <div class="stat"><div class="val" id="stbd-rpm">--</div><div class="lbl">RPM</div></div>
+        <div class="stat"><div class="val" id="stbd-temp">--</div><div class="lbl">Temp</div></div>
+        <div class="stat"><div class="val" id="stbd-hours">--</div><div class="lbl">Hours</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const map = L.map('map').setView([25.704, -80.250], 14)
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap'
+}).addTo(map)
+
+const boatIcon = L.divIcon({
+  html: '<svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="#3b82f6" stroke="#fff" stroke-width="2"/></svg>',
+  iconSize: [24, 24], iconAnchor: [12, 12], className: ''
+})
+let marker = null
+let trail = []
+let trailLine = null
+
+function fmt(v, d=1) { return v != null && v !== 0 && !isNaN(v) ? Number(v).toFixed(d) : '--' }
+function fmtAny(v, d=1) { return v != null && !isNaN(v) ? Number(v).toFixed(d) : '--' }
+
+function update(data) {
+  // Position
+  if (data.position && data.position.lat) {
+    const pos = [data.position.lat, data.position.lon]
+    if (!marker) {
+      marker = L.marker(pos, {icon: boatIcon}).addTo(map)
+      map.setView(pos, 14)
+    } else {
+      marker.setLatLng(pos)
+    }
+    // Trail
+    trail.push(pos)
+    if (trail.length > 500) trail.shift()
+    if (trailLine) map.removeLayer(trailLine)
+    if (trail.length > 1) {
+      trailLine = L.polyline(trail, {color: '#3b82f6', weight: 2, opacity: 0.6}).addTo(map)
+    }
+  }
+
+  // Data cards
+  document.getElementById('speed').textContent = fmtAny(data.speed)
+  document.getElementById('heading').textContent = fmtAny(data.heading, 0) + '\u00B0'
+  document.getElementById('depth').textContent = fmt(data.depth)
+  document.getElementById('waterTemp').textContent = fmt(data.waterTemp) + '\u00B0'
+  document.getElementById('fuel').textContent = data.fuel && data.fuel.level > 0 ? Math.round(data.fuel.level * 100) : '--'
+
+  // Last updated indicator
+  const el = document.getElementById('last-seen')
+  if (data.timestamp) {
+    const ago = Math.floor((Date.now() - new Date(data.timestamp).getTime()) / 1000)
+    if (ago < 120) { el.textContent = 'Live'; el.className = 'fresh' }
+    else if (ago < 600) { el.textContent = Math.floor(ago/60) + 'm ago'; el.className = 'stale' }
+    else if (ago < 3600) { el.textContent = Math.floor(ago/60) + 'm ago'; el.className = 'offline' }
+    else if (ago < 86400) { el.textContent = Math.floor(ago/3600) + 'h ago'; el.className = 'offline' }
+    else { el.textContent = Math.floor(ago/86400) + 'd ago'; el.className = 'offline' }
+  }
+
+  // Engines
+  const eng = data.engines || {}
+  const p = eng.port || {}
+  const s = eng.starboard || {}
+  document.getElementById('port-rpm').textContent = p.rpm > 0 ? p.rpm : 'Off'
+  document.getElementById('port-temp').textContent = p.temp > 0 ? p.temp + '\u00B0' : '--'
+  document.getElementById('stbd-rpm').textContent = s.rpm > 0 ? s.rpm : 'Off'
+  document.getElementById('stbd-temp').textContent = s.temp > 0 ? s.temp + '\u00B0' : '--'
+  document.getElementById('port-hours').textContent = p.hours > 0 ? p.hours + 'h' : '--'
+  document.getElementById('stbd-hours').textContent = s.hours > 0 ? s.hours + 'h' : '--'
+  document.getElementById('port-rpm').className = p.rpm > 0 ? 'val' : 'val no-data'
+  document.getElementById('stbd-rpm').className = s.rpm > 0 ? 'val' : 'val no-data'
+}
+
+function fetchData() {
+  fetch('/api/position')
+    .then(r => r.json())
+    .then(update)
+    .catch(() => {})
+}
+
+fetchData()
+setInterval(fetchData, 15000)
+</script>
+</body>
+</html>
